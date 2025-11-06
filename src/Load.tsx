@@ -45,13 +45,19 @@ async function parseResult(files: File[], ctx: SaveableCtx) {
 	if (!resultFile)
 		return state('no result.json file found, please select right directory')
 
+	let resultParsedRaw: TelegramExport.Result | TelegramExport.Chat
 	let resultParsed: TelegramExport.Result
 	try {
 		state('reading file...')
 		const resultText = await resultFile.text()
 		state('parsing file...')
 		try {
-			resultParsed = JSON.parse(resultText)
+			resultParsedRaw = JSON.parse(resultText)
+			if ('chats' in resultParsedRaw) {
+				resultParsed = resultParsedRaw
+			} else {
+				resultParsed = { chats: { list: [resultParsedRaw] } }
+			}
 		} catch (e) {
 			state(
 				'error while parsing source file: ' +
@@ -60,9 +66,23 @@ async function parseResult(files: File[], ctx: SaveableCtx) {
 			)
 			return
 		}
+		const users = [
+			...resultParsed.chats.list
+				.reduce((acc, chat) => {
+					for (const message of chat.messages) {
+						if (!acc.has(message.from_id))
+							acc.set(message.from_id, {
+								id: message.from_id,
+								name: message.from,
+							})
+					}
+					return acc
+				}, new Map<string, { id: string; name: string }>())
+				.values(),
+		]
 
 		state('done!')
-		ctx.set({ result: resultParsed })
+		ctx.set({ result: resultParsed, users })
 	} catch (e) {
 		state('error while loading source file: ' + e)
 		return
@@ -73,14 +93,23 @@ async function parseResult(files: File[], ctx: SaveableCtx) {
 		const chat2 = resultParsed.chats.list.find(
 			e => e !== chat1 && e.type === 'personal_chat',
 		)
-		const selfId = chat1?.messages.find(e =>
-			chat2?.messages.some(e2 => e2.from_id === e.from_id),
-		)?.from_id
+		let selfId
+
+		if (chat2) {
+			selfId = chat1?.messages.find(e =>
+				chat2?.messages.some(e2 => e2.from_id === e.from_id),
+			)?.from_id
+		} else {
+			selfId = chat1?.messages.find(e => e.from !== chat1.name)?.from_id
+		}
 
 		if (selfId) {
 			ctx.set({ selfId: selfId ?? '' })
 		} else {
 			console.log('no selfId found', { chat1, chat2, selfId })
+			throw new Error(
+				'no selfId found ' + JSON.stringify({ chat1, chat2, selfId }),
+			)
 		}
 	} catch (e) {
 		state('error while loading selfId: ' + e)

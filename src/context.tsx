@@ -4,6 +4,7 @@ import type { TelegramExport } from './types'
 interface Ctx {
 	files: File[]
 	result: TelegramExport.Result | undefined
+	users: { id: string; name: string }[]
 	loadingState: string
 	ignoreTypes: string[]
 	ignoreChats: number[]
@@ -19,6 +20,7 @@ const defaultContext: SaveableCtx = {
 	result: undefined,
 	loadingState: '',
 	ignoreChats: [],
+	users: [],
 	ignoreTypes: [],
 	selfId: '',
 	set() {},

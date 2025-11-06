@@ -5,17 +5,21 @@ import type { TelegramExport } from './types'
 interface SourceFilterCtx {
 	minNumberOfStickers: number
 	myOnly: boolean
+	fromUsersOnly: string[]
 	startDate: number
 	endDate: number
 }
 
 export function Source() {
 	const [collapsed, setCollapsed] = useState(false)
+	const [fromUsersOnly, setFromUsersOnly] = useState<string[]>([])
 	const [minNumberOfStickers, setMinNumberOfStickers] = useState(0)
 	const myOnly = useToggle('My messages only', true)
+	const userFilter = useToggle('User filter', false)
 	const filterCtx: SourceFilterCtx = {
 		minNumberOfStickers,
 		myOnly: myOnly.value,
+		fromUsersOnly: fromUsersOnly,
 		startDate: new Date(2025, 0, 0, 0, 0, 0, 0).getTime() / 1000,
 		endDate: Date.now(),
 	}
@@ -41,7 +45,9 @@ export function Source() {
 						onBlur={e => setMinNumberOfStickers(e.target.valueAsNumber)}
 					></input>
 					{myOnly.button}
+					{userFilter.button}
 				</div>
+
 				{!collapsed && (
 					<div
 						style={{
@@ -60,6 +66,35 @@ export function Source() {
 					</div>
 				)}
 			</div>
+			{userFilter.value && (
+				<div
+					style={{
+						margin: 10,
+						flexDirection: 'row',
+						justifyContent: 'center',
+						display: 'inline-flex',
+						gap: 10,
+					}}
+				>
+					<button onClick={() => setFromUsersOnly([])}>RESET</button>
+					{ctx.users.map(e => (
+						<button
+							disabled={
+								fromUsersOnly.length !== 0 && !fromUsersOnly.includes(e.id)
+							}
+							onClick={() =>
+								setFromUsersOnly(
+									fromUsersOnly.includes(e.id)
+										? fromUsersOnly.filter(s => s !== e.id)
+										: [...fromUsersOnly, e.id],
+								)
+							}
+						>
+							{e.name}
+						</button>
+					))}
+				</div>
+			)}
 			<ViewStickers
 				chats={
 					ctx.result?.chats.list.filter(
